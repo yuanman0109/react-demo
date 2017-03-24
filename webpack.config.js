@@ -1,32 +1,32 @@
 var path = require('path');
+var webpack = require('webpack');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
 var HtmlwebpackPlugin = require('html-webpack-plugin');
-module.exports={
-    entry:'./app/main.js',
+var merge = require('webpack-merge');
+var env = process.env.NODE_ENV=='production'?true:false;
+var webpackConfig={
+    entry:{
+        'app':[
+            'react-hot-loader/patch',
+            'webpack-dev-server/client?http://localhost:8080',
+            // bundle the client for webpack-dev-server
+            'webpack/hot/only-dev-server',
+            path.resolve(__dirname,'./app/main.js')
+        ],
+        'vendors':['react','react-dom']
+    },
     output:{
-        path:path.join(__dirname,'build'),
+        path:path.resolve(__dirname,'build'),
         filename: "js/[name].[hash].js"
     },
     module:{
-        loaders:[
+        rules:[
             {
                 test: /\.js(x)*$/,
-                loader: 'babel-loader',
-                include: [
-                    // 只去解析运行目录下的 app文件夹，提升webpack打包效率
-                    path.join(process.cwd(), './app'),
+                use: [
+                    'babel-loader',
                 ],
-                query: {
-                    presets: ['react', 'es2015']
-                }
-            },
-            {
-                test:/\.css$/,
-                loader: ExtractTextPlugin.extract({fallback:'style-loader', use:'css-loader'})
-            },
-            {
-                test:/\.scss$/,
-                loader: ExtractTextPlugin.extract({fallback:'style-loader', use: ['css-loader', 'sass-loader'],publicPath: '../'})
+                exclude: /node_modules/
             },
             //编译sass文件
             { test: /\.(png|jpg)$/, loader: 'url-loader?limit=8192'} 
@@ -36,8 +36,10 @@ module.exports={
     //生成的sourcemap的方式
 	devtool: process.env.WEBPACK_DEVTOOL || 'source-map',
     resolve: {
+        alias: {
+        },
         //自动扩展文件后缀名
-        extensions: [' ', '.js', '.json', '.scss', '.ts']
+        extensions: [' ', '.js','.jsx','.css','.json', '.scss', '.ts']
     },
     devServer: {
         contentBase: "/build", //静态资源的目录,
@@ -47,11 +49,55 @@ module.exports={
         open:true
     },
     plugins: [
-	    new ExtractTextPlugin("css/[name].[contenthash].css"),//则会生成一个css文件
+        new webpack.HotModuleReplacementPlugin(),
+        new webpack.optimize.CommonsChunkPlugin({
+            name:'vendors',
+            filename: "js/vendors.[hash].js"
+        }),
 		new HtmlwebpackPlugin({
 	      filename: 'index.html',
 	      template: 'index.html',
 	      inject: true
 	    })
 	]
+};
+if(env){
+    module.exports=merge(webpackConfig,{
+        module:{
+            rules:[
+                {
+                    test:/\.css$/,
+                    loader: ExtractTextPlugin.extract({fallback:'style-loader', use:'css-loader'})
+                },
+                {
+                    test:/\.scss$/,
+                    loader: ExtractTextPlugin.extract({fallback:'style-loader', use: ['css-loader', 'sass-loader'],publicPath: '../'})
+                }
+            ]
+        },
+        plugins:[
+            new ExtractTextPlugin("css/[name].[contenthash].css"),//则会生成一个css文件
+        ]
+    })
+}else{
+    module.exports=merge(webpackConfig,{
+        module:{
+            rules: [
+                {
+                    test: /\.css$/,
+                    use: [ 'style-loader', 'css-loader' ]
+                },
+                {
+                    test: /\.scss$/,
+                    use: [{
+                            loader: "style-loader" // creates style nodes from JS strings
+                        }, {
+                            loader: "css-loader" // translates CSS into CommonJS
+                        }, {
+                            loader: "sass-loader" // compiles Sass to CSS
+                    }]
+                }
+            ]
+        }
+    })
 }
